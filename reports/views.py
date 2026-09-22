@@ -59,7 +59,8 @@ def dashboard_context(user, bound_form=None, assignment_id=None):
     today = timezone.localdate()
     month_start, month_end = month_bounds(today.year, today.month)
     last_held = Session.objects.filter(assignment=OuterRef('pk'), status='HELD').order_by('-date').values('hours')[:1]
-    assignments = assignments_for_user(user).filter(status='ACTIVE').annotate(
+    own_assignments = assignments_for_user(user).filter(tutor=user)
+    assignments = own_assignments.filter(status='ACTIVE').annotate(
         last_hours=Subquery(last_held),
         month_hours=Sum('sessions__hours', filter=Q(sessions__date__range=(month_start, month_end))),
     )
@@ -77,11 +78,13 @@ def dashboard_context(user, bound_form=None, assignment_id=None):
         form = bound_form if assignment.pk == assignment_id else SessionForm(
             prefix=f'a{assignment.pk}', initial={'date': today, 'status': 'HELD', 'hours': hours})
         cards.append({'assignment': assignment, 'form': form, 'hours': hours, 'prompts': prompts})
-    return {'cards': cards, 'today': today, 'stopped_assignments': assignments_for_user(user).filter(status='STOPPED')}
+    return {'cards': cards, 'today': today, 'stopped_assignments': own_assignments.filter(status='STOPPED')}
 
 
 @login_required
 def dashboard(request):
+    if request.user.is_staff and not Assignment.objects.filter(tutor=request.user).exists():
+        return redirect('staff_report')
     return render(request, 'reports/dashboard.html', dashboard_context(request.user))
 
 

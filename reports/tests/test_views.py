@@ -45,6 +45,35 @@ class AccessTests(ReportTestCase):
         for model in ['site', 'student', 'assignment', 'session', 'goal', 'studentgoal', 'monthlock']:
             self.assertEqual(self.client.get(f'/admin/reports/{model}/').status_code, 200)
 
+    def test_staff_without_own_assignments_redirects_to_report(self):
+        self.client.force_login(self.staff)
+        self.assertRedirects(self.client.get('/'), '/staff/reports/')
+
+    def test_dashboard_only_shows_own_active_and_stopped_assignments(self):
+        for user in (self.tutor, self.staff):
+            self.assignment.tutor = user
+            self.assignment.save()
+            self.client.force_login(user)
+            for status in ('ACTIVE', 'STOPPED'):
+                with self.subTest(user=user.username, status=status):
+                    for assignment in (self.assignment, self.other_assignment):
+                        assignment.status = status
+                        assignment.stopped_on = date(2026, 9, 15) if status == 'STOPPED' else None
+                        assignment.stopped_reason = 'Moved' if status == 'STOPPED' else ''
+                        assignment.save()
+                    response = self.client.get('/')
+                    self.assertContains(response, 'Ana García')
+                    self.assertNotContains(response, 'Mei Lin')
+                    self.assertNotContains(response, f'/assignments/{self.other_assignment.pk}/log/')
+                    if status == 'ACTIVE':
+                        self.assertEqual([card['assignment'] for card in response.context['cards']], [self.assignment])
+                        self.assertTrue(response.context['cards'][0]['prompts'])
+                        self.assertContains(response, f'/assignments/{self.assignment.pk}/log/')
+                        self.assertEqual(list(response.context['stopped_assignments']), [])
+                    else:
+                        self.assertEqual(response.context['cards'], [])
+                        self.assertEqual(list(response.context['stopped_assignments']), [self.assignment])
+
     def test_post_actions_require_csrf(self):
         client = Client(enforce_csrf_checks=True)
         client.force_login(self.tutor)
@@ -205,7 +234,7 @@ class StaffReportTests(ReportTestCase):
         self.assertEqual(list(response.context['missing']), [self.assignment])
         self.assertEqual(response.context['summary']['students'], 0)
 
-    def test_missing_excludes_future_and_stopped_assignments(self):
+    def test_missing_excludes_future_but_includes_stopped_during_month(self):
         self.assignment.start_date = date(2026, 10, 1)
         self.assignment.save()
         self.other_assignment.status = 'STOPPED'
@@ -213,9 +242,39 @@ class StaffReportTests(ReportTestCase):
         self.other_assignment.stopped_reason = 'Moved'
         self.other_assignment.save()
         response = self.client.get('/staff/reports/?month=2026-09')
-        self.assertEqual(list(response.context['missing']), [])
+        self.assertEqual(list(response.context['missing']), [self.other_assignment])
         self.assertEqual(list(response.context['stopped']), [self.other_assignment])
         self.assertContains(response, 'Moved')
+
+    def test_stopping_pairing_preserves_historical_missing_report(self):
+        url = '/staff/reports/?month=2026-08'
+        self.session(day=date(2026, 8, 15), assignment=self.other_assignment)
+        self.assertEqual(list(self.client.get(url).context['missing']), [self.assignment])
+        self.client.post(f'/assignments/{self.assignment.pk}/stop/', {
+            'stopped_on': '2026-09-15', 'stopped_reason': 'Moved',
+        })
+        self.assignment.refresh_from_db()
+        self.assertEqual(self.assignment.status, 'STOPPED')
+        self.assertEqual(list(self.client.get(url).context['missing']), [self.assignment])
+        self.session(day=date(2026, 8, 20), status='TA', hours='0')
+        self.assertEqual(list(self.client.get(url).context['missing']), [])
+
+    def test_missing_respects_month_boundaries(self):
+        self.session(day=date(2026, 8, 15), assignment=self.other_assignment)
+        for start, stopped, missing in [
+            (date(2026, 8, 31), None, True),
+            (date(2026, 9, 1), None, False),
+            (date(2026, 7, 1), date(2026, 7, 31), False),
+            (date(2026, 7, 1), date(2026, 8, 1), True),
+        ]:
+            with self.subTest(start=start, stopped=stopped):
+                self.assignment.start_date = start
+                self.assignment.status = 'STOPPED' if stopped else 'ACTIVE'
+                self.assignment.stopped_on = stopped
+                self.assignment.stopped_reason = 'Moved' if stopped else ''
+                self.assignment.save()
+                response = self.client.get('/staff/reports/?month=2026-08')
+                self.assertEqual(list(response.context['missing']), [self.assignment] if missing else [])
 
     def test_distinct_students_across_pairings(self):
         extra = Assignment.objects.create(tutor=self.other, student=self.student, site=self.site, meeting_days='0', meeting_time='1pm', start_date=date(2026, 7, 1))
@@ -224,6 +283,10 @@ class StaffReportTests(ReportTestCase):
         report = self.client.get('/staff/reports/?month=2026-09')
         self.assertEqual(report.context['summary']['students'], 1)
         self.assertEqual(report.context['summary']['held'], 2)
+        for assignment in (self.assignment, extra):
+            url = f'/staff/assignments/{assignment.pk}/print/?fy=2026'
+            self.assertContains(report, f'<a class="table-link" href="{url}">Ana García · {assignment.tutor.get_full_name()}</a>', count=2, html=True)
+            self.assertContains(report, f'<a class="table-link" href="{url}">Ana García</a>', count=1, html=True)
 
     def test_month_default_previous_for_first_seven_days(self):
         with patch('django.utils.timezone.localdate', return_value=date(2026, 9, 7)):

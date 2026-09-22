@@ -38,7 +38,7 @@ def monthly_report(year, month):
                     row['label'] = row['assignment__tutor__username']
             row['assignments'] = [a for a in pairings if getattr(a, f'{dimension}_id') == row[f'assignment__{dimension}_id']]
         tables.append({'label': dimension.title(), 'rows': rows})
-    missing = Assignment.objects.filter(status='ACTIVE', start_date__lte=end).exclude(
+    missing = Assignment.objects.filter(Q(status='ACTIVE') | Q(stopped_on__gte=start), start_date__lte=end).exclude(
         sessions__date__range=(start, end)).select_related('student', 'tutor', 'site')
     stopped = Assignment.objects.filter(status='STOPPED', stopped_on__range=(start, end)).select_related('student', 'tutor', 'site')
     goals = StudentGoal.objects.filter(attained_on__range=(start, end)).select_related('student', 'goal', 'recorded_by')
