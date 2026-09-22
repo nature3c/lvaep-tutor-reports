@@ -13,7 +13,7 @@ export DEBUG=1 DEMO_MODE=1
 .venv/bin/python manage.py runserver
 ```
 
-Open http://127.0.0.1:8000. Demo logins: `staff` or `tutor1`–`tutor6`, all with password `demo1234`. The demo staff account is a superuser so the admin can manage tutors and pairings. Data starts July 2026; July is locked. Seeding does nothing when students exist; `seed_demo --reset` replaces reporting data. Use demo accounts only for the public demo.
+Open http://127.0.0.1:8000. Demo logins: `staff` or `tutor1`–`tutor6`, all with password `demo1234`. The demo staff account can manage sites, students, pairings and sessions in the admin, but is deliberately not a superuser, so the public credentials can't be used to edit user accounts. Data starts July 2026; July is locked. Seeding does nothing when students exist; `seed_demo --reset` replaces reporting data. Use demo accounts only for the public demo.
 
 For a separate installation, create a virtualenv and install `requirements.txt`. Environment variables are documented in `.env.example` (export them in your shell; the application does not automatically load dotenv files). SQLite is the local default. Production requires a `SECRET_KEY`; `DEBUG` defaults to false and enables HTTPS redirects and secure cookies when false.
 

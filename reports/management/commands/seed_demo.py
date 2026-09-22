@@ -3,6 +3,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
@@ -37,9 +38,12 @@ class Command(BaseCommand):
         staff, _ = User.objects.get_or_create(username='staff')
         staff.first_name, staff.last_name = 'Morgan', 'Reed'
         staff.email = 'staff@example.com'
-        staff.is_staff = staff.is_superuser = staff.is_active = True
+        # Not a superuser: demo credentials are public, so staff must not be able to edit user accounts.
+        staff.is_staff = staff.is_active = True
+        staff.is_superuser = False
         staff.set_password('demo1234')
         staff.save()
+        staff.user_permissions.set(Permission.objects.filter(content_type__app_label='reports'))
         tutor_names = [('Emily', 'Chen'), ('James', 'Rivera'), ('Priya', 'Patel'), ('David', 'Williams'), ('Sofia', 'Martinez'), ('Michael', 'Osei')]
         tutors = []
         for index, (first, last) in enumerate(tutor_names, 1):
