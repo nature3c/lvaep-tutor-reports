@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: lvaep-tutor-reports
+    runtime: python
+    plan: free
+    buildCommand: ./build.sh
+    startCommand: gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.12
+      - key: DATABASE_URL
+        fromDatabase:
+          name: lvaep-tutor-reports-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: '0'
+      - key: DEMO_MODE
+        value: '1'
+      - key: WEB_CONCURRENCY
+        value: '2'
+databases:
+  - name: lvaep-tutor-reports-db
+    plan: free
+    databaseName: tutor_reports
+    user: tutor_reports

@@ -1,0 +1,15 @@
+{% extends 'reports/base.html' %}
+{% block title %}My students{% endblock %}
+{% block content %}
+<div class="page-heading"><div><p class="eyebrow">{{ today|date:'l, F j' }}</p><h1>My students</h1><p>A little time together. A step forward.</p></div><span class="badge">{{ cards|length }} active pairing{{ cards|length|pluralize }}</span></div>
+<div class="student-cards">
+{% for card in cards %}<article class="panel student-card">
+  <div class="card-heading"><div><h2><a href="{% url 'assignment_detail' card.assignment.pk %}">{{ card.assignment.student }}</a></h2><p>{{ card.assignment.site }}<br>{{ card.assignment.meeting_days_display }} · {{ card.assignment.meeting_time }}</p></div><div class="hours-stat"><strong>{{ card.assignment.month_hours|default:0|floatformat:'-2' }}</strong><span>hours this month</span></div></div>
+  <form method="post" action="{% url 'log_session' card.assignment.pk %}" class="quick-log">{% csrf_token %}<input type="hidden" name="quick_log" value="1"><h3>Log a session</h3><div class="form-grid">{% include 'reports/form_fields.html' with form=card.form %}</div><button type="submit">Save session</button></form>
+  {% if card.prompts %}<details class="prompts" open><summary>Did these sessions happen? <span class="count">{{ card.prompts|length }}</span></summary><p class="help-text">Scheduled days in the last 14 days with no record.</p>
+  {% for day in card.prompts %}<div class="prompt"><strong>{{ day|date:'D, M j' }}</strong><form method="post" action="{% url 'log_session' card.assignment.pk %}">{% csrf_token %}<input type="hidden" name="date" value="{{ day|date:'Y-m-d' }}"><input type="hidden" name="hours" value="{{ card.hours }}"><div class="prompt-actions"><button name="status" value="HELD" type="submit">Held ({{ card.hours|floatformat:'-2' }}h)</button><button class="secondary" name="status" value="SA" type="submit">Student absent</button><button class="secondary" name="status" value="TA" type="submit">Tutor absent</button><button class="secondary" name="status" value="H" type="submit">Holiday</button></div></form></div>{% endfor %}</details>{% endif %}
+  <div class="card-links"><a href="{% url 'assignment_detail' card.assignment.pk %}">View student record →</a><a href="{% url 'achievements' card.assignment.pk %}">Achievements</a></div>
+</article>{% empty %}<div class="panel empty"><h2>No active pairings yet</h2><p>The office can add your students and schedule. They will appear here when you’re ready to begin.</p></div>{% endfor %}
+</div>
+{% if stopped_assignments %}<section class="panel"><h2>Previous pairings</h2><ul>{% for assignment in stopped_assignments %}<li><a href="{% url 'assignment_detail' assignment.pk %}">{{ assignment.student }}</a> · Stopped {{ assignment.stopped_on }}</li>{% endfor %}</ul></section>{% endif %}
+{% endblock %}

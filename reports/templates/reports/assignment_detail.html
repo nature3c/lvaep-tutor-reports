@@ -1,0 +1,12 @@
+{% extends 'reports/base.html' %}
+{% block title %}{{ assignment.student }}{% endblock %}
+{% block content %}
+<a class="back-link no-print" href="{% url 'dashboard' %}">← My students</a>
+<div class="page-heading"><div><p class="eyebrow">Student record</p><h1>{{ assignment.student }}</h1><p>{{ assignment.site }} · {{ assignment.meeting_days_display }} · {{ assignment.meeting_time }}<br>Tutor: {{ assignment.tutor.get_full_name|default:assignment.tutor.username }} · Started {{ assignment.start_date }}</p></div><span class="badge">{{ assignment.get_status_display }}</span></div>
+{% if assignment.student.notes %}<p class="note">{{ assignment.student.notes|linebreaksbr }}</p>{% endif %}
+{% if assignment.status == 'STOPPED' %}<div class="note"><strong>Tutoring stopped {{ assignment.stopped_on }}.</strong> {{ assignment.stopped_reason }}</div>{% endif %}
+<div class="toolbar no-print"><form method="get" class="inline-form"><label for="fy">Fiscal year beginning July</label><input id="fy" name="fy" type="number" min="1900" max="9998" value="{{ fy }}"><button class="secondary">View year</button></form><div class="actions"><a class="button secondary" href="{% url 'achievements' assignment.pk %}">Achievements</a>{% if user.is_staff %}<a class="button secondary" href="{% url 'print_assignment' assignment.pk %}?fy={{ fy }}">Printable form</a>{% endif %}</div></div>
+<section class="panel">{% include 'reports/grid.html' %}</section>
+<section class="panel"><h2>Sessions this fiscal year</h2><div class="table-scroll"><table><thead><tr><th>Date</th><th>Status</th><th>Hours</th><th>Notes</th><th class="no-print">Actions</th></tr></thead><tbody>{% for session in sessions %}<tr><td>{{ session.date|date:'M j, Y' }}</td><td>{{ session.get_status_display }}</td><td>{{ session.hours|floatformat:'-2' }}</td><td class="notes-cell">{{ session.notes|default:'—' }}</td><td class="no-print">{% if session.month_locked %}<span class="badge">Locked</span>{% else %}<a class="table-link" href="{% url 'session_edit' session.pk %}">Edit</a><a class="table-link danger-link" href="{% url 'session_delete' session.pk %}">Delete</a>{% endif %}</td></tr>{% empty %}<tr><td colspan="5" class="empty">No sessions recorded this fiscal year.</td></tr>{% endfor %}</tbody></table></div></section>
+{% if assignment.status == 'ACTIVE' %}<p class="no-print"><a class="danger-link table-link" href="{% url 'stop_assignment' assignment.pk %}">Stop tutoring this student</a></p>{% endif %}
+{% endblock %}

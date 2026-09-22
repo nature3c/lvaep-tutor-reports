@@ -1,0 +1,9 @@
+{% extends 'reports/base.html' %}
+{% block title %}Log in{% endblock %}
+{% block content %}
+<div class="login-layout"><section class="login-intro"><p class="eyebrow">LVAEP · Tutor portal</p><h1>Small steps.<br>Lasting progress.</h1><p>Record a session, celebrate an achievement, and keep your students’ progress in one place.</p></section>
+<section class="panel login-panel"><h2>Welcome back</h2><p>Log in to your tutor account.</p>
+<form method="post">{% csrf_token %}{% include 'reports/form_fields.html' with form=form %}{% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}<button type="submit">Log in</button></form>
+{% if demo_mode %}<aside class="demo-note"><strong>Explore the public demo</strong><p>Tutor: <code>tutor1</code>–<code>tutor6</code><br>Staff: <code>staff</code><br>Password: <code>demo1234</code></p></aside>{% endif %}
+</section></div>
+{% endblock %}
